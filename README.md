@@ -17,6 +17,7 @@ Woopkassa mobile payment gateway for Joomla CMS as a module.
 Имя сервиса: test_merch_invoice
 ```
 Для работы модуля мобильной оплаты необходимо создать дополнительной поле в разделе заказа и выполнить следующие пункты:
+
 8. Переходим в VirtueMart->Configuration->Shopper Fields
 9. Создаем новое поле
 10. Field name = wooppay_auth_code
