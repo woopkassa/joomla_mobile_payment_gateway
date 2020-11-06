@@ -572,14 +572,20 @@ class plgVmPaymentWooppaymobile extends vmPSPlugin
 		$usr = array();
 		$usr['phone'] = (!empty($usrBT->phone_1)) ? $usrBT->phone_1 : $usrBT->phone_2;
 		$usr['email'] = $usrBT->email;
-		if (strlen($usrBT->code) != 6) {
-			try {	
+		if (!$_SESSION['is_getConfirmationCode']){
+			session_start();
+			$_SESSION['is_getConfirmationCode'] = 'false';
+		}
+		if ($_SESSION['is_getConfirmationCode'] == 'false'){
+			try {
 				$client = $this->_wooppayLogin($method);
 				$operator = $client->checkOperator($usr['phone']);
 				$operator = $operator->response->operator;
 				if ($operator == 'beeline' || $operator == 'activ' || $operator == 'kcell') {
-					$phone = substr($usr['phone'], 1);
+					$phone = preg_replace('/[^0-9]/', '', $usr['phone']);
+					$phone = substr($phone, 1);
 					$client->requestConfirmationCode($phone);
+					$_SESSION['is_getConfirmationCode'] = 'true';
 					return $this->processConfirmedOrderPaymentResponse(0, $cart, $order, vmText::_("Введите код из смс в соответствующее поле и нажмите отправить заказ."), '');
 				} else {
 					return $this->processConfirmedOrderPaymentResponse(0, $cart, $order, vmText::_("Недопустимый сотовый оператор для оплаты с мобильного телефона. Допустимые операторы Activ, Kcell, Beeline."), '');
@@ -591,8 +597,12 @@ class plgVmPaymentWooppaymobile extends vmPSPlugin
 					return $this->processConfirmedOrderPaymentResponse(0, $cart, $order, vmText::_("Произошла ошибка номер " . $e->getCode()), '');
 				}
 			}
+		}
+		if (strlen($usrBT->wooppay_auth_code) != 6) {
+			return $this->processConfirmedOrderPaymentResponse(0, $cart, $order, vmText::_("Код подтверждения должен состоять из 6 символов."), '');
 		} else {
-			$phone = substr($usr['phone'], 1);
+			$phone = preg_replace('/[^0-9]/', '', $usr['phone']);
+			$phone = substr($phone, 1);
 			$hash = hash('md5', $usrBT->order_number . ':' . $usrBT->order_pass . ':' . $method->pass);
 			$reference_id = ($method->env == 'test') ? time() : $order['details']['BT']->virtuemart_order_id;
 
@@ -666,6 +676,7 @@ class plgVmPaymentWooppaymobile extends vmPSPlugin
 				}
 			}
 			$cart->emptyCart();
+			unset ($_SESSION['is_getConfirmationCode']);
 			$this->storePSPluginInternalData(array(
 				'virtuemart_order_id' => $usrBT->virtuemart_order_id,
 				'order_number' => $usrBT->order_number,
@@ -678,7 +689,7 @@ class plgVmPaymentWooppaymobile extends vmPSPlugin
 				'wooppay_operation_id' => $invoice_data->response->operationId
 			));
 
-			header('Location: ' . $invoice_data->response->operationUrl);
+			header('Location: ' . $invoice_request->backUrl);
 			exit;
 		}
 	}
