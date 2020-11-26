@@ -362,13 +362,13 @@ class plgVmPaymentWooppaymobile extends vmPSPlugin
 		if (empty($uri_secret) || empty($uri_order_number)) {
 			$this->wplog('Отсутствуют нужные параметры в запросе', self::WOOPPAY_LOG_ERROR);
 			echo $enough;
-			exit;
+			return NULL;
 		}
 
 		if (!($virtuemart_order_id = VirtueMartModelOrders::getOrderIdByOrderNumber($uri_order_number))) {
 			$this->wplog('Заказ ' . $uri_order_number . ' не найден', self::WOOPPAY_LOG_ERROR);
 			echo $enough;
-			exit;
+			return NULL;
 		}
 		/**
 		 * @var $modelOrder VirtueMartModelOrders
@@ -379,34 +379,34 @@ class plgVmPaymentWooppaymobile extends vmPSPlugin
 		if (!$order) {
 			$this->wplog('Не удалось загрузить заказ с ID ' . $virtuemart_order_id, self::WOOPPAY_LOG_ERROR);
 			echo $enough;
-			exit;
+			return NULL;
 		}
 
 		$method = $this->getVmPluginMethod($order['details']['BT']->virtuemart_paymentmethod_id);
 		if (!$method) {
 			$this->wplog('Не удалось загрузить данные метода оплаты Wooppay', self::WOOPPAY_LOG_ERROR);
 			echo $enough;
-			exit;
+			return NULL;
 		}
 		$secret = hash('md5', $order['details']['BT']->order_number . ':' . $order['details']['BT']->order_pass . ':' . $method->pass);
 
 		if ($uri_secret != $secret) {
 			$this->wplog('Хэши для заказа ' . $uri_order_number . ' не совпадают', self::WOOPPAY_LOG_ERROR);
 			echo $enough;
-			exit;
+			return NULL;
 		}
 
 		if ($order['details']['BT']->order_status != $vm_status_pending) {
 			$this->wplog('Попытка подтвердить заказ на неверном статусе. Заказ ' . $order['details']['BT']->order_number . ' на статусе ' . $order['details']['BT']->order_status, self::WOOPPAY_LOG_ERROR);
 			echo $enough;
-			exit;
+			return NULL;
 		}
 
 		$order_data = $this->_getInternalData($virtuemart_order_id);
 		if (!$order_data || !$order_data->wooppay_operation_id) {
 			$this->wplog('Не удалось загрузить данные Wooppay для заказа ' . $uri_order_number, self::WOOPPAY_LOG_ERROR);
 			echo $enough;
-			exit;
+			return NULL;
 		}
 
 		// Проверяем статус оплаты заказа
@@ -414,7 +414,7 @@ class plgVmPaymentWooppaymobile extends vmPSPlugin
 			$client = $this->_wooppayLogin($method);
 			$operationdata_request = new CashGetOperationDataRequest();
 			$operationdata_request->operationId = array($order_data->wooppay_operation_id);
-			$operation_data = $client->cash_getOperationData($operationdata_request);
+			$operation_data = $client->GetOperationData($operationdata_request);
 		} catch (Exception $e) {
 			$this->wplog('Ошибка проверки статуса заказа: ' . $e->getMessage(), self::WOOPPAY_LOG_WARNING);
 			return null;
@@ -724,7 +724,6 @@ class plgVmPaymentWooppaymobile extends vmPSPlugin
 	 */
 	function _getInternalData($virtuemart_order_id, $order_number = '')
 	{
-
 		$db = JFactory::getDBO();
 		$q = 'SELECT * FROM `' . $this->_tablename . '` WHERE ';
 		if ($order_number) {
